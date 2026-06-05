@@ -1,0 +1,163 @@
+import anthropic
+import threading
+import tkinter as tk
+from tkinter import scrolledtext
+
+# The specific client we use for our responses
+client = anthropic.Anthropic()
+
+# Feel free to change
+SP = "You are a friendly and helpful assistant, and your name is K0sh (AI). Keep your answers concise."
+
+#Index:
+#Upper Frame (msg_frm) that contains:
+    #|Headline = message_ar
+    #|Credit = credit_lbl
+#Scrolling Frame = mn_cht  (main chat basically but yh)
+#Lower Frame (send_frm) that contains:
+    #|send_btn
+    #|clear_btn
+#Frame over the send_frm, called controls_frm, that contains:
+    #|send_msg
+
+ANTHROPIC_API_KEY = "your api key here!"
+
+BG_MAIN = "#1E1E24"
+BG_SURFACE = "#2A2A35"
+BG_INPUT = "#363646"
+TEXT_MAIN = "#F3F4F6"
+TEXT_MUTED = "#9CA3AF"
+ACCENT_COLOR = "#0284C7"
+ACCENT_HOVER = "#0369A1"
+DANGER_COLOR = "#EF4444"
+DANGER_HOVER = "#DC2626"
+
+class Client:
+
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Your Client!")
+        self.root.geometry("900x700")
+        self.root.configure(bg=BG_MAIN)
+
+        self.messages = []
+
+        msg_frm = tk.Frame(root, bg=BG_MAIN)
+        msg_frm.pack(pady=15)
+
+        message_ar = tk.Label(
+            msg_frm, text="Hi User! How can I help you today?",
+            bg=BG_MAIN, font=("Helvetica", 18, "bold"), fg=TEXT_MAIN
+        )
+        message_ar.pack()
+
+        credit_lbl = tk.Label(
+            msg_frm, text="Made by @myboialex3",
+            bg=BG_MAIN, font=("Helvetica", 10, "italic"), fg=TEXT_MUTED
+        )
+        credit_lbl.pack(pady=2)
+
+        self.mn_cht = scrolledtext.ScrolledText(
+            root, wrap=tk.WORD, height=22, width=95, font=("Segoe UI", 11),
+            bg=BG_SURFACE, fg=TEXT_MAIN, insertbackground=TEXT_MAIN,
+            bd=0, highlightthickness=1, highlightbackground="#4B5563"
+        )
+        self.mn_cht.pack(pady=10)
+
+        self.mn_cht.insert(tk.END, "Loaded K0sh successfully!\n")
+        self.mn_cht.insert(tk.END, "\nBot: Hi! My name is K0sh AI! \n")
+        self.mn_cht.configure(state=tk.DISABLED) # Prevents user from typing inside chat log
+
+        # Bottom Controls Container
+        controls_frm = tk.Frame(root, bg=BG_MAIN)
+        controls_frm.pack(pady=10, fill=tk.X, padx=40)
+
+        # Send Message Frame (Left/Center)
+        self.send_frm = tk.Frame(controls_frm, bg=BG_MAIN)
+        self.send_frm.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+        self.send_msg = tk.Entry(
+            self.send_frm, font=('Segoe UI', 11), bg=BG_INPUT, fg=TEXT_MAIN,
+            insertbackground="white", bd=0, highlightthickness=1, highlightbackground="#4B5563"
+        )
+        self.send_msg.pack(side=tk.LEFT, fill=tk.X, expand=True, ipady=8, padx=(0, 10))
+        self.send_msg.bind("<Return>", lambda event: self.send_message())
+
+        # Action Buttons Frame (Right)
+        btn_frm = tk.Frame(controls_frm, bg=BG_MAIN)
+        btn_frm.pack(side=tk.RIGHT)
+
+        self.send_btn = tk.Button(
+            btn_frm, text="Send Message", command=self.send_message, font=("Helvetica", 10, "bold"),
+            bg=ACCENT_COLOR, fg="#FFFFFF", activebackground=ACCENT_HOVER, activeforeground="#FFFFFF",
+            bd=0, padx=20, pady=6, cursor="hand2"
+        )
+        self.send_btn.pack(side=tk.LEFT, padx=5)
+
+        self.clear_btn = tk.Button(
+            btn_frm, text="Clear Chat", command=self.clear_chat, font=("Helvetica", 10),
+            bg=BG_SURFACE, fg=DANGER_COLOR, activebackground=DANGER_HOVER, activeforeground="#FFFFFF",
+            bd=0, padx=15, pady=6, cursor="hand2", highlightthickness=1, highlightbackground=DANGER_COLOR
+        )
+        self.clear_btn.pack(side=tk.LEFT, padx=5)
+
+    def send_message(self):
+        user_input = self.send_msg.get().strip()
+        if not user_input:
+            return
+
+        self.mn_cht.config(state = 'normal')
+        self.mn_cht.insert(tk.END, f"\nYou: {user_input}\n")         #\n means new line
+        self.mn_cht.insert(tk.END, "Bot: ")
+        self.mn_cht.config(state='disabled')
+        self.mn_cht.see(tk.END)
+        self.send_msg.delete(0, tk.END)
+
+        #Add to convo history:
+        self.messages.append({"role": "user", "content" : user_input})
+
+        #Basically disable the input field and the send button:
+        self.send_msg.config(state = "disabled")
+        self.send_btn.config(state = "disabled")
+
+        thread = threading.Thread(target=self.stream_response, daemon = True)
+        thread.start()
+
+    def stream_response(self):
+        full_response = ""
+
+        with client.messages.stream(
+            model = "claude-sonnet-4-6",
+            max_tokens = 1024,
+            system = SP,
+            messages = self.messages,
+        ) as stream:                                 #ara olo afto (with client.messages.stream) einai to STREAM
+            for text in stream.text_stream:
+                full_response += text
+                self.root.after(0, self.append_text, text)
+
+        self.messages.append({"role": "assistant","content": full_response})
+        self.root.after(0, self.finish_response)
+
+    def append_text(self, text):
+        self.mn_cht.config(state = "normal")
+        self.mn_cht.insert(tk.END, text)
+    def finish_response(self):
+        self.mn_cht.config(state = "normal")
+        self.mn_cht.insert(tk.END, "\n")
+        self.mn_cht.config(state = "disabled")
+        self.send_msg.configure(state = 'normal')
+
+
+    def clear_chat(self):
+        self.mn_cht.config(state='normal')
+        self.mn_cht.delete(1.0, tk.END)
+        self.mn_cht.config(state='disabled')
+
+def main():
+    root = tk.Tk()
+    app = Client(root)
+    root.mainloop()
+
+if __name__ == '__main__':
+    main()
