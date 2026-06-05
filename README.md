@@ -19,7 +19,8 @@ K0sh AI provides a simple and responsive interface for chatting with Claude mode
 Add a screenshot here:
 
 ```markdown
-![K0sh AI Screenshot](screenshot.png)
+<img width="909" height="736" alt="image" src="https://github.com/user-attachments/assets/b2de65d1-87b1-4b29-b3b7-36d24bfa73cc" />
+
 ```
 
 ## Requirements
